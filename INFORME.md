@@ -269,7 +269,42 @@ RR elegido en el barrido (Z10 + Hora 1:0,50 con SL 0,5 + Nasdaq 1:0,35).
 
 RTA ON, riesgo por operación y estrategia. RTA OFF da casi lo mismo (el DLL casi nunca salta con estos riesgos) pero cuesta 10 $ más al mes, así que RTA ON sale algo mejor. 100K da más dólares por reto pero menos ROI: con el mismo dinero rinden más varias 50K.
 
-## 7. Qué hacer ahora
+## 7. Tu Turtle Soup (TSM): reproducción y barrido real de RR
+
+Backtest **real**, no modelo: tus reglas tal cual sobre tus velas USTEC M5 (06-10-2025 → 18-09-2026), SL 450 ticks
+= 112,5 puntos, 100 € por operación, sin costes (`scripts/turtle_soup_usuario.py`).
+
+- **Reproduce tu informe** tomando la hora de tus datos como **UTC+2 fija**: B da 214 operaciones, 59,81 % de acierto,
+  +4.106 € y DD −608 € (tu informe: 219, 59,82 %, +4.209 €, −600 €); Combinado +3.655 € (+3.939 €), Alcistas +3.003 €
+  (+2.924 €), Bajistas +1.054 € (+969 €). La diferencia que queda es de fuente de datos (USTEC frente a MNQ).
+- **Ojo con la hora:** con UTC+2 fija, tu ventana de 15:30-15:55 es la apertura de Nueva York en verano, pero las
+  **08:30 de Nueva York en invierno** (hora de datos macro, antes de la apertura). Las dos partes ganan (verano +2.492 €,
+  invierno +1.613 €).
+- **Anclada siempre a la apertura de NY** (09:30-09:55 NY, cierre 14:00 NY; lo que hace el EA): B da 53,0 % de acierto,
+  **+13,3 %** y DD −1.662 €. Mucho peor que tu versión: buena parte del resultado de tu informe viene de las entradas de
+  las 08:30 de NY en invierno.
+- **Bajar el RR** sube el acierto pero baja el PnL, igual que en las demás estrategias:
+
+| RR | Acierto | PnL (1 R = 1 %) | DD máx. | PF | Stops / TPs seguidos (máx.) | EV/reto 50K (in-s. / mitad) | **Anclado a la apertura de NY (EA)**: acierto · PnL · DD |
+|---|---|---|---|---|---|---|---|
+| 1,00 | 59,8 % | +41,1 % | −608 € | 1,52 | 5 / 9 | +2.901 / +684 $ | 53,0 % · +13,3 % · −1.662 € |
+| 0,90 | 61,7 % | +37,7 % | −649 € | 1,50 | 5 / 9 | +2.625 / +630 $ | 54,9 % · +11,9 % · −1.360 € |
+| 0,80 | 63,6 % | +33,3 % | −529 € | 1,47 | 5 / 9 | +2.246 / +575 $ | 56,7 % · +8,7 % · −1.472 € |
+| 0,70 | 66,8 % | +32,0 % | −500 € | 1,48 | 5 / 13 | +2.376 / +577 $ | 59,1 % · +5,5 % · −1.802 € |
+| 0,60 | 69,6 % | +26,6 % | −520 € | 1,43 | 4 / 13 | +1.877 / +459 $ | 62,8 % · +5,5 % · −1.467 € |
+| 0,50 | 73,8 % | +24,5 % | −550 € | 1,45 | 4 / 13 | +1.605 / +369 $ | 67,0 % · +2,9 % · −1.377 € |
+| 0,40 | 78,0 % | +21,2 % | −580 € | 1,47 | 4 / 15 | +1.391 / +351 $ | 73,0 % · +6,8 % · −731 € |
+| 0,35 | 80,4 % | +19,6 % | −430 € | 1,48 | 4 / 15 | +1.269 / +324 $ | 76,3 % · +7,6 % · −635 € |
+| 0,30 | 81,3 % | +13,6 % | −350 € | 1,35 | 2 / 15 | +622 / +234 $ | 78,6 % · +5,2 % · −590 € |
+| 0,25 | 82,2 % | +7,4 % | −401 € | 1,20 | 2 / 15 | +245 / +96 $ | 79,5 % · −0,7 % · −518 € |
+| 0,20 | 87,4 % | +11,4 % | −421 € | 1,44 | 2 / 29 | +515 / +122 $ | 83,7 % · +1,7 % · −580 € |
+| 0,15 | 90,2 % | +8,9 % | −406 € | 1,45 | 2 / 30 | +293 / +4 $ | 87,9 % · +3,1 % · −406 € |
+| 0,10 | 92,1 % | +3,7 % | −411 € | 1,23 | 1 / 36 | −85 / −135 $ | 89,8 % · −1,8 % · −531 € |
+
+EA para MT5: `mt5/TurtleSoup_TSM.mq5`. Opera siempre a la apertura de Nueva York y detecta solo el desfase horario del
+broker con la pausa diaria del índice (17:00-18:00 NY), así que se adapta a cualquier broker y a los cambios de horario.
+
+## 8. Qué hacer ahora
 
 1. **Confirmar con velas reales** antes de pagar nada. El código ya está listo:
    ```bash
@@ -290,7 +325,7 @@ RTA ON, riesgo por operación y estrategia. RTA OFF da casi lo mismo (el DLL cas
    1.000 $ por operación.
 4. **Bots en Topstep:** en tu ordenador y vigilados (nada de VPS), por la API de TopstepX.
 
-## 8. Supuestos a confirmar
+## 9. Supuestos a confirmar
 
 - ATR diario típico: oro 80 $, NQ 350 puntos, ES 70 puntos (±25 % por día). Cambia cuántos micros caben por
   operación y el peso de los costes.

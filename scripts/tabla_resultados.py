@@ -86,7 +86,7 @@ def con_manual(df):
 
 
 def html(df):
-    df = con_manual(df.drop(columns=[c for c in ("wr_estimado",) if c in df]))
+    df = con_manual(df)
     cab = ["ID", "Familia", "Activo", "Señal / filtro", "NY / España", "SL (ATRd)", "Riesgo / trade", "RR", "Ops",
            "Ops/día",
            "% acierto", "PF", "Beneficio", "% benef.", "DD máx.", "% DD", "RF", "Meses +", "T/SL/TP",
@@ -95,8 +95,8 @@ def html(df):
     tr = []
     for r in df.itertuples():
         man = r.tipo == "manual"
-        fam, act, sen, hor = TXT.get(r.familia, ("Turtle Soup (tuya)", "MNQ", "Tu backtest · 219 señales", "—"))
-        est = "≈" if man and r.k != 1.0 else ""
+        fam, act, sen, hor = TXT.get(r.familia, ("Turtle Soup (tuya)", "USTEC", "Tus reglas · SMA20 · 1 op/día", "15:30-15:55<br>(UTC+2 fija)"))
+        est = "≈" if man and bool(getattr(r, "estimado", False)) else ""
         sl_txt = "450 t" if man else n(r.sl, 2)
         if man:
             riesgo = "1.000 $ (1 %)<br><span class='mini'>(informe 100 €) SL 112,5 pt · 225 $/MNQ</span>"
@@ -114,7 +114,7 @@ def html(df):
             f"<td>{'+' if r.beneficio >= 0 else ''}{n(r.beneficio)} $</td>"
             f"<td class='ve b'>{'+' if r.beneficio >= 0 else ''}{n(r.beneficio / 1000, 1)} %</td>"
             f"<td>-{n(r.dd)} $</td><td class='ro b'>-{n(r.dd / 1000, 1)} %</td><td>{n(r.rf, 1)}</td>"
-            f"<td>{meses}</td><td>{'≈' if man else ''}{n(100 * r.t)}/{n(100 * r.s)}/{n(100 * r.tp)} %</td>"
+            f"<td>{meses}</td><td>{est}{n(100 * r.t)}/{n(100 * r.s)}/{n(100 * r.tp)} %</td>"
             f"<td>{peor}</td><td class='b'>{'+' if r.ev_in >= 0 else ''}{n(r.ev_in)} / "
             f"{'+' if r.ev_mitad >= 0 else ''}{n(r.ev_mitad)} $</td></tr>")
     return f"""<div class='hoja'>
@@ -126,9 +126,8 @@ def html(df):
 <li>ID sin sufijo = RR del PDF · <b>-b</b> = RR bajado a 1:0,10 (fondo gris) · <b>-o</b> = mejor RR del barrido (fondo azul).
 Z = oro (XAUUSD / MGC), N = Nasdaq 100 (US100 / MNQ). RR = TP:SL de 1 R.</li>
 <li>Beneficio, DD, meses + y peor día: mediana de 300 muestras de 400 días del modelo (no es backtest con velas reales).</li>
-<li><b>TSM</b> (fondo morado) = tu Turtle Soup manual en MNQ, Estrategia B de tu informe (SL 450 ticks), sin costes como tu
-informe y en su periodo (219 señales, 248 sesiones, 06-10-2025 → 18-09-2026), con 1 R = 1 %. TSM-B y los RR 0,75 y 0,50 salen de tu informe y de
-su mapa de calor; ≈ = estimado con el modelo calibrado con ese mapa. Con costes de Topstep, restar ~1,9 puntos de % benef.</li>
+<li><b>TSM</b> (fondo morado) = tu Turtle Soup, <b>backtest real</b> con tus reglas sobre tus velas USTEC M5 (06-10-2025 → 18-09-2026, 247 sesiones), SL 450 ticks = 112,5 pt,
+hora UTC+2 fija como tus datos. Reproduce tu informe (B: 59,8 % y +4.106 € frente a +4.209 €). Sin costes, como tu informe; con los de Topstep, restar ~1,9 puntos. 1 R = 1 %.</li>
 <li>Riesgo / trade: todas las filas con 1.000 $ (1 % de 100.000 $); debajo, el SL con el ATR típico (oro 80 $, NQ 350 pt) y lo que arriesga 1 micro. En Topstep 50K el óptimo es 300-700 $/op.</li>
 <li>EV/reto = Topstep 50K RTA ON con el mejor riesgo: P(aprobar) × cobro en la XFA (6 meses) − coste del reto, con la ventaja in-sample y con la mitad.</li>
 </ul></div>"""
