@@ -66,7 +66,7 @@ def main():
                           t=s["p_t"], s=s["p_sl"], tp=s["p_tp"], peor=peor, ev_in=ev["in-sample"],
                           ev_mitad=ev["mitad"]))
         print(cid, round(s["wr"], 3), round(ben), flush=True)
-    df = pd.DataFrame(filas)
+    df = pd.DataFrame(filas).sort_values("beneficio", ascending=False)
     df.to_csv("resultados/tabla_resultados.csv", index=False)
     open("resultados/tabla_resultados.html", "w").write(html(df))
 
