@@ -176,6 +176,16 @@ void OnTick()
    ultimaBarra = barra;
    if(barra - ultimaDeteccion >= 3600) { DetectarDesfase(); ultimaDeteccion = barra; }
 
+   // una vez al día: en qué hora del servidor cae la apertura de NY
+   static int diaAviso = -1;
+   if(ClaveDia(ANY(barra)) != diaAviso)
+   {
+      diaAviso = ClaveDia(ANY(barra));
+      int ini = MinutosDe(InpVentanaIni) + desfaseNY * 60, fin = MinutosDe(InpCierre) + desfaseNY * 60;
+      PrintFormat("Apertura NY %s = %02d:%02d del servidor (servidor = NY %+d h); cierre forzado %02d:%02d del servidor",
+                  InpVentanaIni, (ini / 60 + 24) % 24, ini % 60, desfaseNY, (fin / 60 + 24) % 24, fin % 60);
+   }
+
    // cierre forzado: al abrir una vela posterior a la de InpCierre (= cierre de esa vela)
    datetime refAhora = ANY(barra);
    if(TengoPosicion() && MinutoDelDia(refAhora) > MinutosDe(InpCierre))
