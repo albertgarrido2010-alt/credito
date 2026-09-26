@@ -152,7 +152,7 @@ def main():
 # ---------------------------------------------------------------------------
 # Filas para la tabla de resultados (ancladas a los datos reales del informe)
 # ---------------------------------------------------------------------------
-RR_TABLA = [1.00, 0.95, 0.90, 0.85, 0.80, 0.75, 0.50, 0.35, 0.25, 0.15, 0.10]
+RR_TABLA = [round(1.00 - 0.05 * i, 2) for i in range(19)]  # 1,00 → 0,10 de 0,05 en 0,05
 RF_MAPA = pd.read_csv("resultados/manual_mapa_rf.csv", index_col=0)
 ATR_TICKS = 1400.0  # ATR diario NQ supuesto (350 puntos) para pasar el modelo a unidades de ATR
 
@@ -202,13 +202,14 @@ def tabla():
         if rr in real:
             pnl, dd = real[rr]
             fuente = "informe" if rr == 1.00 else "mapa del informe"
-        elif rr > 0.75:
-            # entre dos puntos reales (1,00 y 0,75): forma del modelo, con el factor real/modelo interpolado
-            w = (1.00 - rr) / 0.25
-            f_pnl = (1 - w) * real[1.00][0] / ev_m[1.00] + w * real[0.75][0] / ev_m[0.75]
-            f_dd = (1 - w) * real[1.00][1] / dd_m[1.00] + w * real[0.75][1] / dd_m[0.75]
+        elif rr > 0.50:
+            # entre dos puntos reales (1,00-0,75 o 0,75-0,50): forma del modelo, con el factor real/modelo interpolado
+            hi, lo = (1.00, 0.75) if rr > 0.75 else (0.75, 0.50)
+            w = (hi - rr) / (hi - lo)
+            f_pnl = (1 - w) * real[hi][0] / ev_m[hi] + w * real[lo][0] / ev_m[lo]
+            f_dd = (1 - w) * real[hi][1] / dd_m[hi] + w * real[lo][1] / dd_m[lo]
             pnl, dd = ev_m[rr] * f_pnl, dd_m[rr] * f_dd
-            fuente = "modelo (entre RR 1,00 y 0,75 reales)"
+            fuente = f"modelo (entre RR {hi} y {lo} reales)"
         else:
             pnl = real[0.50][0] * ev_m[rr] / ev_m[0.50]
             dd = real[0.50][1] * dd_m[rr] / dd_m[0.50]
