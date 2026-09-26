@@ -25,17 +25,18 @@ pre { padding:6px; white-space:pre-wrap; }
 .hoja { page-break-before: always; page-break-after: always; }
 h1.tr { font-size: 16pt; border: none; margin: 0 0 2px; }
 .sub { color:#666; font-size:8pt; margin:0 0 8px; }
-table.tr { font-size: 6.9pt; }
-table.tr th { background:#1f3a5f; text-align:center; padding:6px 3px; }
-table.tr td { text-align:center; padding:5px 3px; border-bottom:4px solid #fff; background:#f1f2f4; }
+table.tr { font-size: 6.6pt; page-break-inside: auto; margin-top:4px; }
+table.tr th { background:#1f3a5f; text-align:center; padding:4px 3px; }
+table.tr td { text-align:center; padding:2px 3px; border-bottom:2px solid #fff; background:#f1f2f4; line-height:1.15; }
 table.tr tr:nth-child(even) td { background:#f1f2f4; }
 table.tr tr.baj td { background:#e2e3e6; }
 table.tr tr.opt td { background:#dde9f6; }
+table.tr tr.man td { background:#e9defa; }
 table.tr td.id, table.tr td.b { font-weight:bold; }
 table.tr td.am { background:#fde68a !important; }
 table.tr td.ve { background:#bbf0cf !important; }
 table.tr td.ro { background:#f8c8cc !important; }
-.notas { font-size:7.8pt; color:#444; }
+.notas { font-size:7pt; color:#444; margin-top:2px; }
 """
 
 

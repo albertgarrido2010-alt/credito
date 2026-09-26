@@ -66,7 +66,7 @@ def main():
                           t=s["p_t"], s=s["p_sl"], tp=s["p_tp"], peor=peor, ev_in=ev["in-sample"],
                           ev_mitad=ev["mitad"]))
         print(cid, round(s["wr"], 3), round(ben), flush=True)
-    df = pd.DataFrame(filas).sort_values("beneficio", ascending=False)
+    df = pd.DataFrame(filas)
     df.to_csv("resultados/tabla_resultados.csv", index=False)
     open("resultados/tabla_resultados.html", "w").write(html(df))
 
@@ -75,23 +75,39 @@ def n(x, d=0):
     return f"{x:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def con_manual(df):
+    """Añade las filas de tu Turtle Soup manual (scripts/estrategia_manual.py --tabla) y ordena por beneficio."""
+    try:
+        m = pd.read_csv("resultados/manual_tabla.csv")
+    except FileNotFoundError:
+        m = pd.DataFrame()
+    m = m.assign(id=[f"TSM-B {n(k, 2)}" if k != 1.0 else "TSM-B" for k in m.k]) if len(m) else m
+    return pd.concat([df, m], ignore_index=True).sort_values("beneficio", ascending=False)
+
+
 def html(df):
+    df = con_manual(df.drop(columns=[c for c in ("wr_estimado",) if c in df]))
     cab = ["ID", "Familia", "Activo", "Señal / filtro", "NY / España", "SL (ATRd)", "RR", "Ops", "Ops/día",
            "% acierto", "PF", "Beneficio", "% benef.", "DD máx.", "% DD", "RF", "Meses +", "T/SL/TP",
            "Peor día", "EV/reto 50K<br>in-s. / mitad"]
-    clase = {"original": "", "bajado": "baj", "optimizado": "opt"}
+    clase = {"original": "", "bajado": "baj", "optimizado": "opt", "manual": "man"}
     tr = []
     for r in df.itertuples():
-        fam, act, sen, hor = TXT[r.familia]
+        man = r.tipo == "manual"
+        fam, act, sen, hor = TXT.get(r.familia, ("Turtle Soup (tuya)", "MNQ", "Tu backtest · 219 señales", "—"))
+        est = "≈" if man and r.k != 1.0 else ""
+        sl_txt = "450 t" if man else n(r.sl, 2)
+        meses = "—" if pd.isna(r.meses) else f"{n(100 * r.meses)} %"
+        peor = "—" if pd.isna(r.peor) else f"{n(r.peor, 1)} R"
         tr.append(
             f"<tr class='{clase[r.tipo]}'><td class='id'>{r.id}</td><td>{fam}</td><td>{act}</td><td>{sen}</td>"
-            f"<td>{hor}</td><td>{n(r.sl, 2)}</td><td class='am b'>{n(r.k, 2)}</td><td>{n(r.ops)}</td>"
-            f"<td>{n(r.ops_dia, 1)}</td><td class='am b'>{n(100 * r.wr, 1)} %</td><td>{n(r.pf, 2)}</td>"
+            f"<td>{hor}</td><td>{sl_txt}</td><td class='am b'>{n(r.k, 2)}</td><td>{n(r.ops)}</td>"
+            f"<td>{n(r.ops_dia, 1)}</td><td class='am b'>{est}{n(100 * r.wr, 1)} %</td><td>{est}{n(r.pf, 2)}</td>"
             f"<td>{'+' if r.beneficio >= 0 else ''}{n(r.beneficio)} $</td>"
             f"<td class='ve b'>{'+' if r.beneficio >= 0 else ''}{n(r.beneficio / 1000, 1)} %</td>"
             f"<td>-{n(r.dd)} $</td><td class='ro b'>-{n(r.dd / 1000, 1)} %</td><td>{n(r.rf, 1)}</td>"
-            f"<td>{n(100 * r.meses)} %</td><td>{n(100 * r.t)}/{n(100 * r.s)}/{n(100 * r.tp)} %</td>"
-            f"<td>{n(r.peor, 1)} R</td><td class='b'>{'+' if r.ev_in >= 0 else ''}{n(r.ev_in)} / "
+            f"<td>{meses}</td><td>{'≈' if man else ''}{n(100 * r.t)}/{n(100 * r.s)}/{n(100 * r.tp)} %</td>"
+            f"<td>{peor}</td><td class='b'>{'+' if r.ev_in >= 0 else ''}{n(r.ev_in)} / "
             f"{'+' if r.ev_mitad >= 0 else ''}{n(r.ev_mitad)} $</td></tr>")
     return f"""<div class='hoja'>
 <h1 class='tr'>Resultados — tabla de construcción (RR original, bajado y optimizado)</h1>
@@ -102,6 +118,9 @@ def html(df):
 <li>ID sin sufijo = RR del PDF · <b>-b</b> = RR bajado a 1:0,10 (fondo gris) · <b>-o</b> = mejor RR del barrido (fondo azul).
 Z = oro (XAUUSD / MGC), N = Nasdaq 100 (US100 / MNQ). RR = TP:SL de 1 R.</li>
 <li>Beneficio, DD, meses positivos y peor día: mediana de 300 muestras de 400 días del modelo. No son un backtest con velas reales.</li>
+<li><b>TSM</b> (fondo morado) = tu Turtle Soup manual en MNQ, Estrategia B de tu informe (SL 450 ticks), sin costes como tu
+informe y en su periodo (219 señales, 248 sesiones, 06-10-2025 → 18-09-2026), con 1 R = 1 %. TSM-B y los RR 0,75 y 0,50 salen de tu informe y de
+su mapa de calor; ≈ = estimado con el modelo calibrado con ese mapa. Con costes de Topstep, restar ~1,9 puntos de % benef.</li>
 <li>EV/reto = Topstep 50K RTA ON con el mejor riesgo: P(aprobar) × cobro en la XFA (6 meses) − coste del reto, con la ventaja in-sample y con la mitad.</li>
 </ul></div>"""
 
