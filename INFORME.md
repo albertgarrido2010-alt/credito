@@ -19,13 +19,15 @@ Fecha: 26-09-2026 · Base: `Candidatos_Agresivos_Fondeo` (in-sample 2025-03 → 
 - **Cartera en Topstep 50K** (las tres familias a la vez, RTA ON), EV por reto con la mitad de la ventaja
   in-sample:
 
-  | Cartera | EV por reto | Aprueba |
-  |---|---|---|
-  | RR bajado (acierto 85-88 %) | +158 $ | 30 % |
-  | RR original (Z13 + Z05 + N02) | +368 $ | 37 % |
-  | **RR optimizado** (Z10 + Hora SL 0,50 · 1:0,50 + Nasdaq SL 0,35 · 1:0,35) | **+563 $** | **43 %** |
+| Cartera | EV por reto | Aprueba |
+|---|---|---|
+| RR bajado (acierto 85-88 %) | +158 $ | 30 % |
+| RR original (Z13 + Z05 + N02) | +368 $ | 37 % |
+| **RR optimizado** (Z10 + Hora SL 0,50 · 1:0,50 + Nasdaq SL 0,35 · 1:0,35) | **+563 $** | **43 %** |
 
-  Mediana de 26 días hábiles para aprobar y ~1.600 $ cobrados en 6 meses por cuenta aprobada.
+Con la cartera optimizada: mediana de 26 días hábiles para aprobar y ~1.600 $ cobrados en 6 meses por
+cuenta aprobada.
+
 - **Rachas** (muestra de 18 meses, estrategias del PDF): 2-3 stops seguidos (3-5 en el peor 5 %), 3-5
   pérdidas seguidas (5-7) y 15-25 TPs seguidos (21-38). Con RR 1:0,10: 1-2 stops seguidos (2-3) y 32-51 TPs
   seguidos. Tablas en los apartados 4 y 5.
