@@ -85,7 +85,7 @@ def html(df):
         fam, act, sen, hor = TXT[r.familia]
         tr.append(
             f"<tr class='{clase[r.tipo]}'><td class='id'>{r.id}</td><td>{fam}</td><td>{act}</td><td>{sen}</td>"
-            f"<td>{hor}</td><td>{n(r.sl, 2)}</td><td class='am b'>1:{n(r.k, 2)}</td><td>{n(r.ops)}</td>"
+            f"<td>{hor}</td><td>{n(r.sl, 2)}</td><td class='am b'>{n(r.k, 2)}</td><td>{n(r.ops)}</td>"
             f"<td>{n(r.ops_dia, 1)}</td><td class='am b'>{n(100 * r.wr, 1)} %</td><td>{n(r.pf, 2)}</td>"
             f"<td>{'+' if r.beneficio >= 0 else ''}{n(r.beneficio)} $</td>"
             f"<td class='ve b'>{'+' if r.beneficio >= 0 else ''}{n(r.beneficio / 1000, 1)} %</td>"
