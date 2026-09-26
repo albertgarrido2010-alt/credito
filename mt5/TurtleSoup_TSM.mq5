@@ -132,24 +132,34 @@ void CerrarPosiciones()
    }
 }
 
-double Lotes(const double distPrecio)
+// Lotes para arriesgar InpRiesgo (divisa de la cuenta) entre la entrada y el SL.
+// OrderCalcProfit hace la conversión de la divisa del símbolo (USD) a la de la cuenta (p. ej. EUR).
+double Lotes(const ENUM_ORDER_TYPE tipo, const double entrada, const double sl)
 {
-   double tickVal  = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE_LOSS);
-   if(tickVal <= 0) tickVal = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE);
-   double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
-   double paso     = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
-   double vmin     = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-   double vmax     = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
-   if(tickVal <= 0 || tickSize <= 0 || distPrecio <= 0) return 0;
-   double riesgoPorLote = distPrecio / tickSize * tickVal;
-   double lotes = InpRiesgo / riesgoPorLote;
-   lotes = MathFloor(lotes / paso) * paso;
+   double paso = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+   double vmin = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   double vmax = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+   double perdida1Lote = 0;
+   if(!OrderCalcProfit(tipo, _Symbol, 1.0, entrada, sl, perdida1Lote) || perdida1Lote == 0)
+   {
+      // alternativa: valor del tick (puede venir sin convertir en el probador)
+      double tickVal  = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE_LOSS);
+      double tickSize = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_SIZE);
+      if(tickVal <= 0 || tickSize <= 0) return 0;
+      perdida1Lote = MathAbs(entrada - sl) / tickSize * tickVal;
+      Print("OrderCalcProfit no disponible; se usa el valor del tick");
+   }
+   perdida1Lote = MathAbs(perdida1Lote);
+   double lotes = MathRound(InpRiesgo / perdida1Lote / paso) * paso;   // al paso más cercano
    if(lotes < vmin)
    {
-      PrintFormat("Riesgo %.2f insuficiente: el lote mínimo (%.2f) arriesga %.2f", InpRiesgo, vmin, vmin * riesgoPorLote);
+      PrintFormat("Riesgo %.2f insuficiente: el lote mínimo (%.2f) arriesga %.2f", InpRiesgo, vmin, vmin * perdida1Lote);
       return 0;
    }
-   return MathMin(lotes, vmax);
+   lotes = MathMin(lotes, vmax);
+   PrintFormat("Lotes %.2f -> riesgo real hasta el SL %.2f %s (objetivo %.2f)", lotes, lotes * perdida1Lote,
+               AccountInfoString(ACCOUNT_CURRENCY), InpRiesgo);
+   return lotes;
 }
 
 //--- ciclo -----------------------------------------------------------------
@@ -213,19 +223,23 @@ void OnTick()
    if(!compra && !venta) return;
 
    double dist = InpSLPoints * _Point;               // points de MT5 -> distancia en precio
-   double lotes = Lotes(dist);
-   if(lotes <= 0) return;
    int dig = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    bool ok;
    if(compra)
    {
       double px = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-      ok = trade.Buy(lotes, _Symbol, 0, NormalizeDouble(px - dist, dig), NormalizeDouble(px + InpRR * dist, dig), "TSM compra");
+      double sl = NormalizeDouble(px - dist, dig), tp = NormalizeDouble(px + InpRR * dist, dig);
+      double lotes = Lotes(ORDER_TYPE_BUY, px, sl);
+      if(lotes <= 0) return;
+      ok = trade.Buy(lotes, _Symbol, 0, sl, tp, "TSM compra");
    }
    else
    {
       double px = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-      ok = trade.Sell(lotes, _Symbol, 0, NormalizeDouble(px + dist, dig), NormalizeDouble(px - InpRR * dist, dig), "TSM venta");
+      double sl = NormalizeDouble(px + dist, dig), tp = NormalizeDouble(px - InpRR * dist, dig);
+      double lotes = Lotes(ORDER_TYPE_SELL, px, sl);
+      if(lotes <= 0) return;
+      ok = trade.Sell(lotes, _Symbol, 0, sl, tp, "TSM venta");
    }
    if(ok) diaOperado = ClaveDia(refGat);   // máximo 1 operación al día, aunque salte enseguida
 }
