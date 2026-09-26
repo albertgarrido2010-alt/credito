@@ -36,6 +36,7 @@ table.tr td.id, table.tr td.b { font-weight:bold; }
 table.tr td.am { background:#fde68a !important; }
 table.tr td.ve { background:#bbf0cf !important; }
 table.tr td.ro { background:#f8c8cc !important; }
+.mini { font-size:5.6pt; color:#555; font-weight:normal; }
 .notas { font-size:7pt; color:#444; margin-top:2px; }
 """
 
