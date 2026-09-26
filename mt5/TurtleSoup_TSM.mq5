@@ -8,7 +8,8 @@
 //|  3) Gap: si open < low anterior u open > high anterior, no vale.   |
 //|  4) Velas gatillo de 09:30 a 09:55 de NY (15:30-15:55 de Madrid), |
 //|     máximo 1 operación al día (la primera válida).                 |
-//|  5) Entrada al cierre de la gatillo; SL fijo; TP = RR x SL; cierre |
+//|  5) Entrada al cierre de la gatillo; SL fijo en points de MT5;     |
+//|     TP = RR x SL; cierre                                           |
 //|     forzado al cierre de la vela de las 14:00 de NY (a las 14:05). |
 //|  6) Riesgo fijo por operación en la divisa de la cuenta.           |
 //| Horario: siempre en hora de Nueva York (09:30-09:55 gatillo,     |
@@ -25,7 +26,7 @@ enum ENUM_MODO { MODO_COMBINADO = 0, MODO_SOLO_ALCISTAS = 1, MODO_SOLO_BAJISTAS 
 
 input group "Estrategia"
 input ENUM_MODO InpModo          = MODO_COMBINADO; // Combinado / solo alcistas / solo bajistas
-input double    InpSLPuntos      = 112.5;          // SL en puntos de índice (450 ticks de 0,25)
+input int       InpSLPoints      = 11250;          // SL en points de MT5 (11250 x 0,01 = 112,5 puntos de índice)
 input double    InpRR            = 1.00;           // RR: TP = RR x SL
 input int       InpSMA           = 20;             // Periodo de la SMA de régimen (cierre, M5)
 input double    InpRiesgo        = 100.0;          // Riesgo por operación (divisa de la cuenta)
@@ -160,6 +161,8 @@ int OnInit()
    trade.SetDeviationInPoints(InpDesviacion);
    if(MinutosDe(InpVentanaIni) < 0 || MinutosDe(InpVentanaFin) < 0 || MinutosDe(InpCierre) < 0)
       return INIT_PARAMETERS_INCORRECT;
+   if(InpSLPoints <= 0) return INIT_PARAMETERS_INCORRECT;
+   PrintFormat("SL = %d points x %s = %.2f de precio", InpSLPoints, DoubleToString(_Point, _Digits), InpSLPoints * _Point);
    if(!DetectarDesfase()) Print("Aún no hay velas para detectar el desfase; se usa servidor = NY + 7 hasta detectarlo");
    return INIT_SUCCEEDED;
 }
@@ -209,7 +212,7 @@ void OnTick()
    bool venta  = (h1 > h2 && c1 < h2 && c1 > sma[0]) && InpModo != MODO_SOLO_ALCISTAS;
    if(!compra && !venta) return;
 
-   double dist = InpSLPuntos;
+   double dist = InpSLPoints * _Point;               // points de MT5 -> distancia en precio
    double lotes = Lotes(dist);
    if(lotes <= 0) return;
    int dig = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
