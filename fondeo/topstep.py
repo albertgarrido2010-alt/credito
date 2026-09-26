@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .modelo import Biblioteca
+from .modelo import N_FRANJAS, Biblioteca, franja
 
 DIAS_MES = 21
 
@@ -79,7 +79,8 @@ class Pierna:
 
 
 def _dia(pierna: Pierna, rng, n: int, micros_cap):
-    """Simula un día de una pierna para n cuentas. Devuelve (pnl $, mínimo intradía $, n ops, micros)."""
+    """Simula un día de una pierna para n cuentas.
+    Devuelve (pnl $ por operación, peor equity $ por franja de 30', n ops, micros)."""
     b, ins = pierna.bib, pierna.ins
     d = rng.integers(0, b.r.shape[0], n)
     atr = ins.atr * np.exp(rng.normal(0, ATR_SD, n) - ATR_SD ** 2 / 2)
@@ -94,22 +95,34 @@ def _dia(pierna: Pierna, rng, n: int, micros_cap):
     coste = c[:, None] * (ins.comision_rt * hay + ticks * ins.tick * ins.usd_punto)
     escala = (c * sl_usd)[:, None]
     pnl = r * escala - coste
-    acum_antes = np.cumsum(pnl, axis=1) - pnl
-    bajo = acum_antes + np.where(hay, b.mae[d], 0.0) * escala - c[:, None] * ins.comision_rt * hay
-    return pnl, np.minimum(bajo.min(axis=1), 0.0), hay.sum(axis=1), c
+    if b.min_franja is not None:
+        # coste acumulado hasta cada franja (se cobra al entrar) y peor equity de cada franja
+        f_in = franja(b.ini_min + b.t_in[d])
+        c_franja = np.zeros((n, N_FRANJAS))
+        filas = np.arange(n)
+        for j in range(pnl.shape[1]):
+            c_franja[filas, f_in[:, j]] += coste[:, j]
+        camino = b.min_franja[d] * escala - np.cumsum(c_franja, axis=1)
+    else:
+        acum_antes = np.cumsum(pnl, axis=1) - pnl
+        bajo = acum_antes + np.where(hay, b.mae[d], 0.0) * escala - c[:, None] * ins.comision_rt * hay
+        camino = bajo.min(axis=1, keepdims=True)
+    return pnl, camino, hay.sum(axis=1), c
 
 
 def _dia_cuenta(piernas, rng, n, micros_cap, dll, dist):
     """Suma las piernas de un día. Aplica el DLL (corta el día) y detecta la quema (MLL en tiempo real).
-    Con varias piernas, el mínimo intradía es la suma de mínimos (cota conservadora)."""
+    Con varias piernas se suma la peor equity de cada franja de 30' (la misma hora en todas las piernas);
+    dentro de la franja se toma el peor punto de cada una, que es ligeramente conservador."""
     pnl_tot = np.zeros(n)
-    bajo_tot = np.zeros(n)
+    camino = np.zeros((n, 1))
     nops = np.zeros(n)
     for p in piernas:
-        pnl, bajo, k, _ = _dia(p, rng, n, micros_cap)
+        pnl, cam, k, _ = _dia(p, rng, n, micros_cap)
         pnl_tot += pnl.sum(axis=1)
-        bajo_tot += bajo
+        camino = camino + cam
         nops += k
+    bajo_tot = np.minimum(camino.min(axis=1), 0.0)
     quema = bajo_tot <= -dist
     if dll is not None:
         # si el DLL queda por encima del suelo, el DLL cierra el día antes de que se queme la cuenta
@@ -176,6 +189,9 @@ def xfa(piernas, cuenta: Cuenta, rta: bool = True, n: int = 4000, horizonte: int
     dia_quema = np.full(n, horizonte)
     tope = cuenta.tope_retiro * (2 if rta else 1)
     dll = cuenta.dll if rta else None
+    # si ni con un ATR muy bajo (−3,5 σ) se llega al tope de contratos más bajo, no hace falta agruparlo
+    cap_min = cuenta.escalado_xfa[0][1]
+    sin_tope = sum(p.riesgo / (p.bib.sl * p.ins.atr * p.ins.usd_punto * 0.4) for p in piernas) < cap_min
     for dia in range(horizonte):
         if not vivo.any():
             break
@@ -183,8 +199,10 @@ def xfa(piernas, cuenta: Cuenta, rta: bool = True, n: int = 4000, horizonte: int
         pnl = np.zeros(n)
         quema = np.zeros(n, bool)
         nops = np.zeros(n)
+        if sin_tope:
+            pnl, quema, nops = _dia_cuenta(piernas, rng, n, cap_min, dll, bal - suelo)
         # el tope de contratos depende del saldo: se agrupa por tope
-        for c in np.unique(cap[vivo]):
+        for c in ([] if sin_tope else np.unique(cap[vivo])):
             m = vivo & (cap == c)
             p, q, k = _dia_cuenta(piernas, rng, n, c, dll, bal - suelo)
             pnl = np.where(m, p, pnl)

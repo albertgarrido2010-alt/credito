@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .modelo import MAXT, Biblioteca
+from .modelo import MAXT, N_FRANJAS, Biblioteca, franja
 
 NY = "America/New_York"
 SIMBOLOS_DUKAS = {"XAU": ("XAUUSD", 1000.0), "NQ": ("USATECHIDXUSD", 1000.0), "ES": ("USA500IDXUSD", 1000.0)}
@@ -205,6 +205,17 @@ def a_biblioteca(ops: pd.DataFrame, sl: float, k: float, dias_habiles: list | No
     TI = np.zeros((nd, MAXT), np.int32)
     TO = np.zeros((nd, MAXT), np.int32)
     cnt = np.zeros(nd, np.int32)
+    MINF = np.zeros((nd, N_FRANJAS))
+    for d in range(nd):
+        acum, f_prev = 0.0, 0
+        for fila in ops[ops["dia"] == dias[d]].itertuples():
+            f = int(franja(fila.salida.hour * 60 + fila.salida.minute))
+            MINF[d, f_prev + 1:f + 1] = acum          # sin cambios hasta esta salida
+            MINF[d, f] = min(MINF[d, f], acum + fila.mae_r)
+            acum += fila.r
+            MINF[d, f] = min(MINF[d, f], acum)
+            f_prev = f
+        MINF[d, f_prev + 1:] = acum
     for fila in ops.itertuples():
         d = pos[fila.dia]
         c = cnt[d]
@@ -214,4 +225,4 @@ def a_biblioteca(ops: pd.DataFrame, sl: float, k: float, dias_habiles: list | No
         TI[d, c] = fila.entrada.hour * 60 + fila.entrada.minute
         TO[d, c] = fila.salida.hour * 60 + fila.salida.minute
         cnt[d] += 1
-    return Biblioteca(R, T, M, TI, TO, cnt, np.ones(nd), sl, k)
+    return Biblioteca(R, T, M, TI, TO, cnt, np.ones(nd), sl, k, MINF, 0)

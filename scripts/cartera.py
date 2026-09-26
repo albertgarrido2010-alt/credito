@@ -15,12 +15,14 @@ from fondeo.topstep import CUENTAS, INSTRUMENTOS, Pierna, combine, xfa
 
 EDGES = {"in-sample": 1.0, "mitad": 0.5, "sin ventaja": 0.0}
 RIESGO = [0.08, 0.10, 0.15, 0.20, 0.25, 0.35]   # × MLL por operación y pierna
-RIESGO_XFA = [0.04, 0.06, 0.08, 0.10, 0.15, 0.20]
-UMBRAL = [0.0, 0.5, 1.0, 1.5, 2.0]
-N = 6000
+RIESGO_XFA = [0.06, 0.10, 0.15, 0.20]
+UMBRAL = [0.5, 1.0, 1.5]
+N = 4000
 
 # RR original del PDF (una por familia; la que mejor sale de cada familia en el informe)
 ORIGINAL = {"ts24_xau": (0.50, 0.15), "hora_xau": (0.50, 0.25), "ts12_nq": (0.35, 0.25)}
+# Mismo SL con el TP a la mitad o menos: acierto 85-88 %
+BAJADO = {"ts24_xau": (0.50, 0.10), "hora_xau": (0.50, 0.12), "ts12_nq": (0.35, 0.12)}
 
 
 def elegir_rr(barrido: pd.DataFrame) -> dict:
@@ -78,9 +80,10 @@ def main():
     barrido = pd.read_csv("resultados/barrido_rr.csv")
     elegido = elegir_rr(barrido)
     print("RR elegido:", elegido)
-    carteras = {"RR original (Z13 + Z05 + N02)": ORIGINAL, "RR optimizado": elegido}
+    carteras = {"RR original (Z13 + Z05 + N02)": ORIGINAL, "RR bajado (acierto 85-88 %)": BAJADO,
+                "RR optimizado": elegido}
     tareas = [(cal, n, c, esc, nc, rta) for n, c in carteras.items() for esc in EDGES
-              for nc in ("50K", "100K", "150K") for rta in (True, False)]
+              for nc in ("50K", "100K") for rta in (True, False)]
     with Pool(4) as p:
         res = p.map(tarea, tareas, chunksize=1)
     filas = [f for r in res for f in r]

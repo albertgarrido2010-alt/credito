@@ -24,6 +24,13 @@ MAXT = 16            # operaciones máximas por día que se guardan
 DT = 1.0 / 60.0      # paso de 1 minuto (horas)
 CIERRE = 15 + 55 / 60  # 15:55 NY
 COSTE_PDF_ATR = 0.006  # coste por operación que implica el informe (spread+comisión CFD), en ATR
+FRANJA_INI = 120       # las franjas de 30' empiezan a las 02:00 NY (minuto 120 del día)
+N_FRANJAS = 28         # 02:00 → 16:00 NY
+
+
+def franja(minuto_abs):
+    """Franja de 30 minutos (0 = 02:00-02:30 NY) de un minuto del día."""
+    return np.clip((np.asarray(minuto_abs) - FRANJA_INI) // 30, 0, N_FRANJAS - 1)
 
 
 @dataclass(frozen=True)
@@ -67,6 +74,10 @@ class Biblioteca:
     v: np.ndarray        # multiplicador de volatilidad del día
     sl: float
     k: float
+    # Peor equity (realizado + flotante, sin costes, en R) de cada franja de 30' del día. Sirve para
+    # sumar varias estrategias en la misma cuenta respetando la hora (MLL en tiempo real y DLL).
+    min_franja: np.ndarray | None = None
+    ini_min: int = 0     # minuto del día (NY) al que corresponde t_in = 0
 
     # --- agregados --------------------------------------------------------
     def planas(self):
@@ -133,6 +144,10 @@ def simular(fam: Familia, sl: float, k: float, p: Params, n_dias: int = 4000, se
     edad = np.zeros(n_dias, np.int32)
     tin = np.zeros(n_dias, np.int32)
     idx = np.arange(n_dias)
+    realiz = np.zeros(n_dias)
+    ini_min = int(round(fam.ini * 60))
+    MINF = np.full((n_dias, N_FRANJAS), np.inf)
+    MINF[:, : int(franja(ini_min))] = 0.0
 
     def cerrar(m, res, tipo, minuto):
         d = idx[m]
@@ -144,6 +159,7 @@ def simular(fam: Familia, sl: float, k: float, p: Params, n_dias: int = 4000, se
         TOUT[d, c] = minuto
         cnt[d] += 1
         abierta[d] = False
+        realiz[d] += R[d, c]
 
     for minuto in range(n_min):
         # 1) mover las abiertas
@@ -160,6 +176,10 @@ def simular(fam: Familia, sl: float, k: float, p: Params, n_dias: int = 4000, se
             mx = 0.5 * (x0 + x1 + np.sqrt(dlt - 2 * vv * np.log(rng.random(a_idx.size))))
             x[a_idx] = x1
             edad[a_idx] += 1
+            eq = realiz.copy()
+            eq[a_idx] += np.maximum(mn, L) / sl
+            f = int(franja(ini_min + minuto))
+            MINF[:, f] = np.minimum(MINF[:, f], eq)
             mae[a_idx] = np.minimum(mae[a_idx], mn)
             hsl = np.zeros(n_dias, bool)
             htp = np.zeros(n_dias, bool)
@@ -172,6 +192,8 @@ def simular(fam: Familia, sl: float, k: float, p: Params, n_dias: int = 4000, se
             fin = abierta & ((edad >= cap) | (minuto == n_min - 1))
             if fin.any():
                 cerrar(fin, x / sl, 1, minuto)
+        f = int(franja(ini_min + minuto))
+        MINF[:, f] = np.minimum(MINF[:, f], realiz)
         # 2) nuevas entradas
         if minuto <= ult_entrada:
             e = sig[minuto] & ~abierta & (cnt < MAXT)
@@ -181,7 +203,9 @@ def simular(fam: Familia, sl: float, k: float, p: Params, n_dias: int = 4000, se
                 mae[e] = 0.0
                 edad[e] = 0
                 tin[e] = minuto
-    return Biblioteca(R, TIPO, MAE, TIN, TOUT, cnt, v, sl, k)
+    ult_f = int(franja(ini_min + n_min - 1))
+    MINF[:, ult_f + 1:] = realiz[:, None]
+    return Biblioteca(R, TIPO, MAE, TIN, TOUT, cnt, v, sl, k, MINF.astype(np.float32), ini_min)
 
 
 # ---------------------------------------------------------------------------

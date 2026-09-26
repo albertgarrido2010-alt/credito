@@ -80,3 +80,35 @@ def test_backtest_en_velas_sinteticas(fam, tmp_path):
     assert (ops["salida"].dt.hour * 60 + ops["salida"].dt.minute <= 15 * 60 + 50).all()
     bib = a_biblioteca(ops, 0.5, 0.15)
     assert bib.n.sum() == len(ops)
+
+
+def test_cartera_suma_por_franjas():
+    """Dos piernas con la pérdida en franjas distintas no deben sumar sus mínimos."""
+    from fondeo.modelo import N_FRANJAS, Biblioteca
+    from fondeo.topstep import _dia_cuenta
+
+    def bib(franja_perdida):
+        m = np.zeros((1, N_FRANJAS), np.float32)
+        m[0, franja_perdida] = -1.0            # −1 R en esa franja y luego vuelve a 0
+        r = np.full((1, 16), np.nan)
+        r[0, 0] = 0.0
+        tipo = np.zeros((1, 16), np.int8)
+        tipo[0, 0] = 1
+        z = np.zeros((1, 16), np.int32)
+        return Biblioteca(r, tipo, np.zeros((1, 16)), z, z, np.array([1]), np.ones(1), 0.5, 0.2, m, 0)
+
+    ins = INSTRUMENTOS["XAU"]
+    ins = type(ins)(ins.nombre, ins.usd_punto, ins.tick, 0.0, ins.atr)  # sin comisión
+    import fondeo.topstep as ts
+    sd, ts.ATR_SD = ts.ATR_SD, 0.0
+    try:
+        riesgo = 0.5 * ins.atr * ins.usd_punto   # 1 micro exacto
+        rng = np.random.default_rng(0)
+        _, quema, _ = _dia_cuenta([Pierna(bib(3), ins, riesgo), Pierna(bib(10), ins, riesgo)], rng, 1, 50,
+                                  None, np.array([1.5 * riesgo]))
+        assert not quema[0]                      # −1 R y −1 R en horas distintas: nunca −2 R a la vez
+        _, quema, _ = _dia_cuenta([Pierna(bib(3), ins, riesgo), Pierna(bib(3), ins, riesgo)], rng, 1, 50,
+                                  None, np.array([1.5 * riesgo]))
+        assert quema[0]                          # a la misma hora sí suman −2 R
+    finally:
+        ts.ATR_SD = sd
